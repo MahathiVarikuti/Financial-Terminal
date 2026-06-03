@@ -7,7 +7,7 @@ I designed it to operate securely and efficiently at zero-cost via an AWS Server
 ---
 
 ## Live Demo
-Access the live application: [FinTerminal](http://fintech-engine-frontend-vk-2026.s3-website.ap-south-1.amazonaws.com/)
+Access the live application: [FinTerminal](https://fintech-engine-frontend-vk-2026.s3.ap-south-1.amazonaws.com/index.html)
 
 ---
 

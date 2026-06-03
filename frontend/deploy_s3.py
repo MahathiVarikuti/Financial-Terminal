@@ -69,4 +69,4 @@ for root, dirs, files in os.walk(dist_dir):
             ExtraArgs={'ContentType': content_type}
         )
 
-print(f"Deployment complete: http://{bucket_name}.s3-website.{region}.amazonaws.com/")
+print(f"Deployment complete: https://{bucket_name}.s3.{region}.amazonaws.com/index.html")
