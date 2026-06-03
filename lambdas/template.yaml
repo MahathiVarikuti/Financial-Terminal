@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  FinTech Economics Engine — Lambda Functions
+  Deploys Monte Carlo simulator, EUAC optimizer, and Capital Allocation solver.
+  All functions share a single Lambda Layer containing numpy, scipy, scikit-learn.
+
+# ── Global defaults applied to all Lambda functions ──────────────────────────
+Globals:
+  Function:
+    Runtime: python3.11
+    MemorySize: 128        # Minimum allocation — Lambda is CPU-bound via NumPy, not RAM-heavy
+    Timeout: 25            # API Gateway max is 29s; 25s gives headroom
+    Layers:
+      - !Ref SharedMathLayer
+    Environment:
+      Variables:
+        PYTHONPATH: /opt/python   # Points to the shared layer's package directory
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+Resources:
+
+  # Shared layer: numpy + scipy + scikit-learn built with manylinux2014 wheels
+  # Build this layer FIRST: cd lambdas/shared_layer && bash build.sh
+  SharedMathLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: fintech-math-layer
+      Description: Shared scientific computing libraries (numpy, scipy, scikit-learn)
+      ContentUri: shared_layer/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.11
+
+  # ── Monte Carlo NPV Risk Simulator ──────────────────────────────────────────
+  MonteCarloFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fintech-monte-carlo
+      CodeUri: monte_carlo/
+      Handler: handler.lambda_handler
+      Description: >
+        Runs up to 200,000 vectorized Monte Carlo NPV simulations.
+        Returns histogram, P5–P95 percentiles, VaR, and summary stats.
+
+  # ── AI Asset Replacement Optimizer ──────────────────────────────────────────
+  OptimizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fintech-optimizer
+      CodeUri: optimizer/
+      Handler: handler.lambda_handler
+      Timeout: 30           # Slightly longer — scikit-learn model fitting
+      Description: >
+        Minimizes EUAC (Equivalent Uniform Annual Cost) across ownership horizons.
+        Uses polynomial regression (scikit-learn) when historical O&M data is provided.
+
+  # ── Capital Allocation Solver (0/1 Knapsack) ────────────────────────────────
+  CapitalSolverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fintech-capital-solver
+      CodeUri: capital_solver/
+      Handler: handler.lambda_handler
+      Timeout: 15            # DP completes well within 5s; 15s is comfortable headroom
+      Description: >
+        Solves 0/1 Knapsack DP (NumPy-accelerated) or fractional greedy allocation
+        to maximize total project NPV within a fixed capital budget.
+
+# ── Outputs — export ARNs for reference ──────────────────────────────────────
+Outputs:
+  MonteCarloFunctionArn:
+    Description: Monte Carlo Lambda function ARN
+    Value: !GetAtt MonteCarloFunction.Arn
+    Export:
+      Name: fintech-monte-carlo-arn
+
+  OptimizerFunctionArn:
+    Description: Optimizer Lambda function ARN
+    Value: !GetAtt OptimizerFunction.Arn
+    Export:
+      Name: fintech-optimizer-arn
+
+  CapitalSolverFunctionArn:
+    Description: Capital Solver Lambda function ARN
+    Value: !GetAtt CapitalSolverFunction.Arn
+    Export:
+      Name: fintech-capital-solver-arn
+
+  SharedLayerArn:
+    Description: Shared math layer ARN (numpy/scipy/scikit-learn)
+    Value: !Ref SharedMathLayer
+    Export:
+      Name: fintech-math-layer-arn

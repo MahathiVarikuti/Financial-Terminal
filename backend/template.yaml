@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  FinTech Economics Engine - FastAPI Backend
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        LAMBDA_MONTE_CARLO: fintech-monte-carlo
+        LAMBDA_OPTIMIZER: fintech-optimizer
+        LAMBDA_CAPITAL_SOLVER: fintech-capital-solver
+        CORS_ORIGINS: "*"
+        FRED_API_KEY: "35df774bf7e5a122934de6decc677215"
+
+Resources:
+  FintechApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lambda_function.zip
+      Handler: app.main.handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Policies:
+        # Give permission to invoke the other Lambdas
+        - LambdaInvokePolicy:
+            FunctionName: fintech-monte-carlo
+        - LambdaInvokePolicy:
+            FunctionName: fintech-optimizer
+        - LambdaInvokePolicy:
+            FunctionName: fintech-capital-solver
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  FintechApiUrl:
+    Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"

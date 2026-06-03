@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: "FinTech Economics Engine \u2014 Lambda Functions Deploys Monte Carlo\
+  \ simulator, EUAC optimizer, and Capital Allocation solver. All functions share\
+  \ a single Lambda Layer containing numpy, scipy, scikit-learn.\n"
+Globals:
+  Function:
+    Runtime: python3.11
+    MemorySize: 128
+    Timeout: 25
+    Layers:
+    - Ref: SharedMathLayer
+    Environment:
+      Variables:
+        PYTHONPATH: /opt/python
+Resources:
+  SharedMathLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: fintech-math-layer
+      Description: Shared scientific computing libraries (numpy, scipy, scikit-learn)
+      ContentUri: SharedMathLayer
+      CompatibleRuntimes:
+      - python3.11
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.11
+      SamResourceId: SharedMathLayer
+  MonteCarloFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fintech-monte-carlo
+      CodeUri: ../../monte_carlo
+      Handler: handler.lambda_handler
+      Description: "Runs up to 200,000 vectorized Monte Carlo NPV simulations. Returns\
+        \ histogram, P5\u2013P95 percentiles, VaR, and summary stats.\n"
+  OptimizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fintech-optimizer
+      CodeUri: ../../optimizer
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Description: 'Minimizes EUAC (Equivalent Uniform Annual Cost) across ownership
+        horizons. Uses polynomial regression (scikit-learn) when historical O&M data
+        is provided.
+
+        '
+  CapitalSolverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fintech-capital-solver
+      CodeUri: CapitalSolverFunction
+      Handler: handler.lambda_handler
+      Timeout: 15
+      Description: 'Solves 0/1 Knapsack DP (NumPy-accelerated) or fractional greedy
+        allocation to maximize total project NPV within a fixed capital budget.
+
+        '
+    Metadata:
+      SamResourceId: CapitalSolverFunction
+Outputs:
+  MonteCarloFunctionArn:
+    Description: Monte Carlo Lambda function ARN
+    Value:
+      Fn::GetAtt:
+      - MonteCarloFunction
+      - Arn
+    Export:
+      Name: fintech-monte-carlo-arn
+  OptimizerFunctionArn:
+    Description: Optimizer Lambda function ARN
+    Value:
+      Fn::GetAtt:
+      - OptimizerFunction
+      - Arn
+    Export:
+      Name: fintech-optimizer-arn
+  CapitalSolverFunctionArn:
+    Description: Capital Solver Lambda function ARN
+    Value:
+      Fn::GetAtt:
+      - CapitalSolverFunction
+      - Arn
+    Export:
+      Name: fintech-capital-solver-arn
+  SharedLayerArn:
+    Description: Shared math layer ARN (numpy/scipy/scikit-learn)
+    Value:
+      Ref: SharedMathLayer
+    Export:
+      Name: fintech-math-layer-arn
